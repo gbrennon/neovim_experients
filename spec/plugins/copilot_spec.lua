@@ -1,9 +1,9 @@
 -- Tests for plugins/copilot.lua
-local helper = require("spec.spec_helper")
+local spec_helper = require("spec_helper")
 
 describe("plugins.copilot", function()
   before_each(function()
-    helper.before_each()
+    spec_helper.reset_vim_mock()
     -- Mock copilot
     package.loaded["copilot"] = {
       setup = function() end,

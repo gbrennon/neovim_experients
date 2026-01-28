@@ -18,6 +18,7 @@ local function create_opt_proxy()
     __index = function(_, k)
       return {
         get = function() return M._state.options[k] end,
+        _value = M._state.options[k], -- For direct access in tests
         append = function(_, v)
           local current = M._state.options[k] or {}
           if type(current) == "table" then
@@ -96,13 +97,22 @@ local vim_mock = {
 
   keymap = {
     set = function(mode, lhs, rhs, opts)
+      opts = opts or {}
       if type(mode) == "table" then
         for _, m in ipairs(mode) do
-          table.insert(M._state.keymaps, { mode = m, lhs = lhs, rhs = rhs, opts = opts })
+          table.insert(M._state.keymaps, { mode = m, lhs = lhs, rhs = rhs, opts = opts, buffer = opts.buffer })
         end
       else
-        table.insert(M._state.keymaps, { mode = mode, lhs = lhs, rhs = rhs, opts = opts })
+        table.insert(M._state.keymaps, { mode = mode, lhs = lhs, rhs = rhs, opts = opts, buffer = opts.buffer })
       end
+    end,
+    _get_keymap = function(mode, lhs)
+      for _, keymap in ipairs(M._state.keymaps) do
+        if keymap.mode == mode and keymap.lhs == lhs then
+          return keymap
+        end
+      end
+      return nil
     end,
   },
 

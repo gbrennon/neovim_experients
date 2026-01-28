@@ -1,4 +1,5 @@
 -- LSP Configuration using vim.lsp.config (Neovim 0.11+)
+-- Follows SOLID: Delegates diagnostics to core.diagnostics module
 
 local M = {}
 
@@ -10,7 +11,10 @@ M.servers = {
     settings = {
       Lua = {
         diagnostics = { globals = { "vim" } },
-        workspace = { checkThirdParty = false },
+        workspace = {
+          checkThirdParty = false,
+          library = vim.api.nvim_get_runtime_file("", true),
+        },
         telemetry = { enable = false },
       },
     },
@@ -25,7 +29,7 @@ M.servers = {
         analysis = {
           autoSearchPaths = true,
           useLibraryCodeForTypes = true,
-          diagnosticMode = "openFilesOnly",
+          -- diagnosticMode will be set by core.diagnostics module
         },
       },
     },
@@ -37,9 +41,13 @@ M.servers = {
     root_markers = { "go.work", "go.mod", ".git" },
     settings = {
       gopls = {
-        analyses = { unusedparams = true },
+        analyses = {
+          unusedparams = true,
+          shadow = true,
+        },
         staticcheck = true,
         gofumpt = true,
+        semanticTokens = true,
       },
     },
   },
@@ -50,7 +58,13 @@ M.servers = {
     root_markers = { "Cargo.toml", "rust-project.json", ".git" },
     settings = {
       ["rust-analyzer"] = {
-        checkOnSave = { command = "clippy" },
+        checkOnSave = {
+          command = "clippy",
+          allTargets = true,
+        },
+        cargo = {
+          allFeatures = true,
+        },
       },
     },
   },
@@ -77,6 +91,7 @@ M.servers = {
         preferences = {
           importModuleSpecifierPreference = "relative",
         },
+        -- diagnosticMode will be set by core.diagnostics module
       },
       javascript = {
         preferences = {
@@ -124,29 +139,16 @@ function M.get_capabilities()
   return capabilities
 end
 
-function M.setup_diagnostics()
-  vim.diagnostic.config({
-    virtual_text = true,
-    signs = true,
-    underline = true,
-    update_in_insert = false,
-    severity_sort = true,
-    float = { border = "rounded", source = "always" },
-  })
-
-  local signs = { Error = " ", Warn = " ", Hint = "ó°   ", Info = " " }
-  for type, icon in pairs(signs) do
-    local hl = "DiagnosticSign" .. type
-    vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = "" })
-  end
-end
-
 function M.setup_servers(on_attach)
+  local diagnostics = require("core.diagnostics")
   local capabilities = M.get_capabilities()
 
   for name, config in pairs(M.servers) do
     local cmd_name = config.cmd[1]
     if M.server_exists(cmd_name) then
+      -- Apply workspace diagnostic settings (respects project config)
+      config.settings = diagnostics.apply_workspace_settings(name, config.settings)
+
       config.capabilities = capabilities
       config.on_attach = on_attach
       vim.lsp.config[name] = config
@@ -157,8 +159,10 @@ end
 
 function M.config()
   local keymaps = require("core.keymaps")
+  local diagnostics = require("core.diagnostics")
 
-  M.setup_diagnostics()
+  -- Setup diagnostics display (delegated to diagnostics module)
+  diagnostics.setup_display()
 
   local on_attach = function(client, bufnr)
     keymaps.lsp_on_attach(bufnr)
