@@ -1,0 +1,145 @@
+-- Key Mappings Configuration
+
+local M = {}
+
+function M.setup()
+  local map = vim.keymap.set
+
+  -- Set leader key
+  vim.g.mapleader = ","
+  vim.g.maplocalleader = ","
+
+  ------------------------------------------------------------------------------
+  -- General keymaps
+  ------------------------------------------------------------------------------
+  map("n", "<leader>w", ":w<CR>", { desc = "Save file" })
+  map("n", "<leader>q", ":q<CR>", { desc = "Quit window" })
+  map("n", "<leader>W", ":wa<CR>", { desc = "Save all files" })
+  map("n", "<leader>Q", ":qa!<CR>", { desc = "Force quit all" })
+  map("n", "<leader><Space>", ":nohlsearch<CR>", { desc = "Clear search highlights" })
+
+  -- Toggle relative line numbers
+  map("n", "<leader>trn", function()
+    vim.opt.relativenumber = not vim.opt.relativenumber:get()
+  end, { desc = "Toggle Relative Number" })
+
+  ------------------------------------------------------------------------------
+  -- Buffer navigation
+  ------------------------------------------------------------------------------
+  map("n", "<Tab>", ":bnext<CR>", { desc = "Next Buffer" })
+  map("n", "<S-Tab>", ":bprevious<CR>", { desc = "Prev Buffer" })
+  map("n", "<leader>bd", ":bdelete<CR>", { desc = "Delete Buffer" })
+
+  ------------------------------------------------------------------------------
+  -- Window navigation
+  ------------------------------------------------------------------------------
+  map("n", "<C-h>", "<C-w>h", { desc = "Window Left" })
+  map("n", "<C-j>", "<C-w>j", { desc = "Window Down" })
+  map("n", "<C-k>", "<C-w>k", { desc = "Window Up" })
+  map("n", "<C-l>", "<C-w>l", { desc = "Window Right" })
+
+  -- Resize windows with arrows
+  map("n", "<C-Up>", ":resize +2<CR>", { desc = "Increase window height" })
+  map("n", "<C-Down>", ":resize -2<CR>", { desc = "Decrease window height" })
+  map("n", "<C-Left>", ":vertical resize -2<CR>", { desc = "Decrease window width" })
+  map("n", "<C-Right>", ":vertical resize +2<CR>", { desc = "Increase window width" })
+
+  -- Split windows
+  map("n", "<leader>sv", ":vsplit<CR>", { desc = "Split vertically" })
+  map("n", "<leader>sh", ":split<CR>", { desc = "Split horizontally" })
+  map("n", "<leader>se", "<C-w>=", { desc = "Make splits equal" })
+  map("n", "<leader>sx", ":close<CR>", { desc = "Close current split" })
+
+  ------------------------------------------------------------------------------
+  -- File Explorer (NvimTree)
+  ------------------------------------------------------------------------------
+  map("n", "<F3>", ":NvimTreeToggle<CR>", { desc = "Toggle File Explorer" })
+  map("n", "<leader>e", ":NvimTreeToggle<CR>", { desc = "Toggle File Explorer" })
+  map("n", "<leader>fe", ":NvimTreeFocus<CR>", { desc = "Focus File Explorer" })
+
+  ------------------------------------------------------------------------------
+  -- Telescope
+  ------------------------------------------------------------------------------
+  map("n", "<leader>ff", "<cmd>Telescope find_files<CR>", { desc = "Find Files" })
+  map("n", "<leader>fg", "<cmd>Telescope live_grep<CR>", { desc = "Live Grep" })
+  map("n", "<leader>fb", "<cmd>Telescope buffers<CR>", { desc = "Buffers" })
+  map("n", "<leader>fh", "<cmd>Telescope help_tags<CR>", { desc = "Find Help" })
+  map("n", "<leader>fr", "<cmd>Telescope oldfiles<CR>", { desc = "Recent Files" })
+  map("n", "<leader>fc", "<cmd>Telescope commands<CR>", { desc = "Commands" })
+  map("n", "<leader>fk", "<cmd>Telescope keymaps<CR>", { desc = "Keymaps" })
+
+  ------------------------------------------------------------------------------
+  -- Visual mode
+  ------------------------------------------------------------------------------
+  map("v", "<", "<gv", { desc = "Indent left" })
+  map("v", ">", ">gv", { desc = "Indent right" })
+  map("v", "J", ":m '>+1<CR>gv=gv", { desc = "Move text down" })
+  map("v", "K", ":m '<-2<CR>gv=gv", { desc = "Move text up" })
+  map("x", "<leader>p", [["_dP]], { desc = "Paste without losing register" })
+  map({ "n", "v" }, "<leader>d", [["_d]], { desc = "Delete without yanking" })
+
+  ------------------------------------------------------------------------------
+  -- Navigation improvements
+  ------------------------------------------------------------------------------
+  map("n", "<C-d>", "<C-d>zz", { desc = "Scroll down and center" })
+  map("n", "<C-u>", "<C-u>zz", { desc = "Scroll up and center" })
+  map("n", "n", "nzzzv", { desc = "Next search result centered" })
+  map("n", "N", "Nzzzv", { desc = "Previous search result centered" })
+  map("i", "jk", "<Esc>", { desc = "Exit insert mode" })
+  map("n", "<C-a>", "gg<S-v>G", { desc = "Select all" })
+end
+
+------------------------------------------------------------------------------
+-- LSP buffer-local keymaps (to be called in LSP on_attach)
+------------------------------------------------------------------------------
+function M.lsp_on_attach(bufnr)
+  local lsp_map = function(mode, lhs, rhs, opts)
+    opts = vim.tbl_extend("force", { buffer = bufnr, noremap = true, silent = true }, opts or {})
+    vim.keymap.set(mode, lhs, rhs, opts)
+  end
+  lsp_map("n", "gd", vim.lsp.buf.definition, { desc = "Go to Definition" })
+  lsp_map("n", "gD", vim.lsp.buf.declaration, { desc = "Go to Declaration" })
+  lsp_map("n", "gi", vim.lsp.buf.implementation, { desc = "Go to Implementation" })
+  lsp_map("n", "gr", vim.lsp.buf.references, { desc = "Find References" })
+  lsp_map("n", "K", vim.lsp.buf.hover, { desc = "Hover Documentation" })
+  lsp_map("n", "<leader>rn", vim.lsp.buf.rename, { desc = "Rename Symbol" })
+  lsp_map("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action" })
+  lsp_map("n", "[d", vim.diagnostic.goto_prev, { desc = "Prev Diagnostic" })
+  lsp_map("n", "]d", vim.diagnostic.goto_next, { desc = "Next Diagnostic" })
+  lsp_map("n", "<leader>dl", vim.diagnostic.open_float, { desc = "Show Diagnostic" })
+  lsp_map("n", "<leader>qf", vim.diagnostic.setloclist, { desc = "Diagnostics to Quickfix" })
+  lsp_map("n", "<leader>f", function()
+    vim.lsp.buf.format({ async = true })
+  end, { desc = "Format Buffer" })
+end
+
+------------------------------------------------------------------------------
+-- nvim-tree buffer-local keymaps
+------------------------------------------------------------------------------
+function M.nvimtree_on_attach(bufnr)
+  local api = require("nvim-tree.api")
+  local map = vim.keymap.set
+  local opts = function(desc)
+    return { desc = "nvim-tree: " .. desc, buffer = bufnr, noremap = true, silent = true, nowait = true }
+  end
+
+  api.config.mappings.default_on_attach(bufnr)
+
+  map("n", "a", api.fs.create, opts("Create File/Dir"))
+  map("n", "d", api.fs.remove, opts("Delete"))
+  map("n", "r", api.fs.rename, opts("Rename"))
+  map("n", "m", api.fs.rename_sub, opts("Move"))
+  map("n", "x", api.fs.cut, opts("Cut"))
+  map("n", "p", api.fs.paste, opts("Paste"))
+  map("n", "v", api.node.open.vertical, opts("Open: Vertical Split"))
+  map("n", "s", api.node.open.horizontal, opts("Open: Horizontal Split"))
+  map("n", "<CR>", api.node.open.edit, opts("Open"))
+  map("n", "o", api.node.open.edit, opts("Open"))
+  map("n", "/", api.live_filter.start, opts("Start Live Filter"))
+  map("n", "f", api.live_filter.clear, opts("Clear Live Filter"))
+end
+
+-- Auto-run setup when loaded
+M.setup()
+
+return M
