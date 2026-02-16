@@ -59,16 +59,29 @@ function M.setup()
     desc = "Auto resize splits",
   })
 
-  -- Check if file changed outside of vim
-  autocmd({ "FocusGained", "TermClose", "TermLeave" }, {
+  -- Check if file changed outside of vim and auto-reload
+  autocmd({ "FocusGained", "TermClose", "TermLeave", "BufEnter", "CursorHold" }, {
     group = general,
-    command = "checktime",
-    desc = "Check if file changed",
+    callback = function()
+      -- Check for file changes and reload buffer if changed
+      vim.cmd("checktime")
+      
+      -- Refresh nvim-tree if it's loaded and open
+      local nvim_tree_ok, api = pcall(require, "nvim-tree.api")
+      if nvim_tree_ok then
+        local view = require("nvim-tree.view")
+        if view.is_visible() then
+          api.tree.reload()
+        end
+      end
+    end,
+    desc = "Auto-reload files and refresh nvim-tree on focus/cursor hold",
   })
 
-  -- Auto-import / organize imports on save
+  -- LSP refresh and auto-import group
   local lsp_group = augroup("LspAutoImport", { clear = true })
 
+  -- Auto-import / organize imports on save
   autocmd("BufWritePre", {
     group = lsp_group,
     pattern = { "*.go", "*.ts", "*.tsx", "*.js", "*.jsx", "*.py" },
@@ -87,6 +100,81 @@ function M.setup()
       end
     end,
     desc = "Auto-import and organize imports on save",
+  })
+
+  -- LSP auto-refresh group
+  local lsp_refresh_group = augroup("LspAutoRefresh", { clear = true })
+  
+  -- Restart LSP when config files change
+  autocmd({ "BufWritePost", "FileChangedShellPost" }, {
+    group = lsp_refresh_group,
+    pattern = { 
+      "pyproject.toml", "requirements.txt", "setup.py", "setup.cfg", "Pipfile", "pyrightconfig.json",
+      "tsconfig.json", "jsconfig.json", "package.json", "package-lock.json", 
+      "go.mod", "go.work", "go.sum", "Cargo.toml", "Cargo.lock", 
+      "build.sbt", "build.sc", ".scala-build",
+      ".luarc.json", ".luarc.jsonc", ".stylua.toml", "stylua.toml"
+    },
+    callback = function(event)
+      vim.defer_fn(function()
+        local filename = vim.fn.fnamemodify(event.file, ":t")
+        vim.notify("Config file " .. filename .. " changed. Restarting LSP...", vim.log.levels.INFO)
+        
+        -- Use the reliable vim.lsp restart approach
+        local clients = vim.lsp.get_clients()
+        for _, client in ipairs(clients) do
+          local buffers = vim.lsp.get_buffers_by_client_id(client.id)
+          vim.lsp.stop_client(client.id, true)
+          
+          -- Restart after a brief delay
+          vim.defer_fn(function()
+            for _, buf in ipairs(buffers) do
+              if vim.api.nvim_buf_is_valid(buf) then
+                local filetype = vim.api.nvim_get_option_value("filetype", { buf = buf })
+                -- Trigger LSP attach by simulating filetype event
+                vim.api.nvim_exec_autocmds("FileType", {
+                  buffer = buf,
+                  data = { filetype = filetype }
+                })
+              end
+            end
+          end, 1500)
+        end
+      end, 500)
+    end,
+    desc = "Restart LSP when config files change",
+  })
+
+  -- Alternative: Watch for external config changes using vim's file watching
+  autocmd({ "FocusGained", "BufEnter" }, {
+    group = lsp_refresh_group,
+    callback = function()
+      -- Check if any config files changed and restart if needed
+      local config_files = {
+        "pyproject.toml", "requirements.txt", "package.json", "tsconfig.json", 
+        "go.mod", "Cargo.toml", "build.sbt", ".luarc.json"
+      }
+      
+      for _, config_file in ipairs(config_files) do
+        local filepath = vim.fn.expand(config_file)
+        if vim.fn.filereadable(filepath) == 1 then
+          -- Check if file was modified since last check
+          local modtime = vim.fn.getftime(filepath)
+          local last_modtime = vim.g["lsp_config_modtime_" .. config_file:gsub("%.", "_")]
+          
+          if last_modtime and modtime > last_modtime then
+            vim.g["lsp_config_modtime_" .. config_file:gsub("%.", "_")] = modtime
+            vim.notify("Detected " .. config_file .. " changes. Restarting LSP...", vim.log.levels.INFO)
+            vim.cmd("LspRestart")
+            break -- Only restart once per focus
+          elseif not last_modtime then
+            -- Initialize the timestamp
+            vim.g["lsp_config_modtime_" .. config_file:gsub("%.", "_")] = modtime
+          end
+        end
+      end
+    end,
+    desc = "Check for config file changes on focus and restart LSP",
   })
 end
 

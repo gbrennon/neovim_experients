@@ -20,5 +20,31 @@ return {
     filters = {
       dotfiles = false,
     },
+    filesystem_watchers = {
+      enable = true,
+      debounce_delay = 50,
+      ignore_dirs = {
+        "node_modules",
+        ".git",
+        ".venv",
+        "__pycache__",
+        "target",
+      },
+    },
+    actions = {
+      file_popup = {
+        open_win_config = {
+          col = 1,
+          row = 1,
+          relative = "cursor",
+          border = "shadow",
+          style = "minimal",
+        },
+      },
+    },
+    live_filter = {
+      prefix = "[FILTER]: ",
+      always_show_folders = true,
+    },
   },
 }

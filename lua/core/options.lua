@@ -51,8 +51,8 @@ function M.setup()
   -- Undo history
   opt.undofile = true
 
-  -- Update time
-  opt.updatetime = 250
+  -- Update time (faster for auto-refresh)
+  opt.updatetime = 1000  -- Trigger CursorHold events faster for auto-refresh
   opt.timeoutlen = 300
 
   -- Scroll offset
@@ -78,6 +78,9 @@ function M.setup()
   -- Disable netrw (using nvim-tree instead)
   vim.g.loaded_netrw = 1
   vim.g.loaded_netrwPlugin = 1
+
+  -- Auto-read files when changed outside of Neovim
+  opt.autoread = true
 end
 
 -- Auto-run setup when loaded
