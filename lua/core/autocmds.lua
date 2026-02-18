@@ -50,14 +50,59 @@ function M.setup()
     desc = "Close certain filetypes with q",
   })
 
-  -- Auto resize splits when window is resized
-  autocmd("VimResized", {
+  -- Disable rename for non-pyright LSP clients to avoid duplicate rename dialogs
+  autocmd("LspAttach", {
     group = general,
-    callback = function()
-      vim.cmd("tabdo wincmd =")
+    callback = function(args)
+      local client = vim.lsp.get_client_by_id(args.data.client_id)
+      if client then
+        if client.name ~= "pyright" then
+          client.server_capabilities.renameProvider = false
+          client.server_capabilities.codeActionProvider = false
+        end
+      end
     end,
-    desc = "Auto resize splits",
+    desc = "Disable rename for non-pyright LSP clients",
   })
+  
+  -- Override vim.lsp.buf.rename to only use pyright
+  vim.lsp.buf.rename = function(...)
+    local bufnr = vim.api.nvim_get_current_buf()
+    local clients = vim.lsp.get_active_clients({ buffer = bufnr })
+    
+    -- Find pyright client
+    local pyright_client = nil
+    for _, client in ipairs(clients) do
+      if client.name == "pyright" then
+        pyright_client = client
+        break
+      end
+    end
+    
+    if not pyright_client then
+      vim.notify("Pyright not available for rename", vim.log.levels.WARN)
+      return
+    end
+    
+    -- Request rename from pyright only
+    local params = vim.lsp.util.make_position_params(0, pyright_client.offset_encoding)
+    local new_name = vim.fn.input("New name: ")
+    if new_name == "" then
+      return
+    end
+    params.newName = new_name
+    
+    pyright_client.request("textDocument/rename", params, function(err, result)
+      if err then
+        vim.notify("Rename failed: " .. err.message, vim.log.levels.ERROR)
+        return
+      end
+      if result then
+        vim.lsp.util.apply_workspace_edit(result, pyright_client.offset_encoding)
+        vim.notify("Renamed successfully", vim.log.levels.INFO)
+      end
+    end)
+  end
 
   -- Check if file changed outside of vim and auto-reload
   autocmd({ "FocusGained", "TermClose", "TermLeave", "BufEnter", "CursorHold" }, {
@@ -104,6 +149,44 @@ function M.setup()
 
   -- LSP auto-refresh group
   local lsp_refresh_group = augroup("LspAutoRefresh", { clear = true })
+  
+  -- Auto-reload Neovim config when config files change
+  local nvim_config_group = augroup("NvimConfigReload", { clear = true })
+  
+  autocmd("BufWritePost", {
+    group = nvim_config_group,
+    pattern = { "*init.lua", "*/lua/core/*.lua", "*/lua/plugins/*.lua" },
+    callback = function(event)
+      vim.defer_fn(function()
+        local filename = vim.fn.fnamemodify(event.file, ":t")
+        vim.notify("Config reload triggered for: " .. filename, vim.log.levels.WARN)
+        
+        -- Clear require cache for lua modules
+        for module_name, _ in pairs(package.loaded) do
+          if module_name:match("^core%.") or module_name:match("^plugins%.") then
+            package.loaded[module_name] = nil
+          end
+        end
+        
+        -- Reload the modified file
+        local relative_path = event.file:gsub(vim.fn.stdpath("config") .. "/", ""):gsub("%.lua$", ""):gsub("/", ".")
+        if relative_path:match("^init$") then
+          pcall(function()
+            require("core.options")
+            require("core.keymaps")
+            require("core.autocmds")
+          end)
+        elseif relative_path:match("^core%.") then
+          pcall(require, relative_path)
+        elseif relative_path:match("^plugins%.") then
+          pcall(require, relative_path)
+        end
+        
+        vim.notify(filename .. " reloaded!", vim.log.levels.INFO)
+      end, 100)
+    end,
+    desc = "Auto-reload Neovim config files",
+  })
   
   -- Restart LSP when config files change
   autocmd({ "BufWritePost", "FileChangedShellPost" }, {
@@ -175,6 +258,58 @@ function M.setup()
       end
     end,
     desc = "Check for config file changes on focus and restart LSP",
+  })
+
+  -- Restart LSP when project files change (new, deleted, modified)
+  autocmd({ "BufWritePost", "BufDelete", "BufNewFile" }, {
+    group = lsp_refresh_group,
+    callback = function(event)
+      local filename = vim.fn.fnamemodify(event.file, ":t")
+      local filepath = event.file
+      
+      -- Get file extension
+      local ext = vim.fn.fnamemodify(filepath, ":e")
+      
+      -- List of project-critical filetypes/patterns that should trigger LSP restart
+      local trigger_patterns = {
+        -- Python
+        "py", "toml", "txt",
+        -- TypeScript/JavaScript
+        "ts", "tsx", "js", "jsx", "json",
+        -- Go
+        "go", "mod", "sum",
+        -- Rust
+        "rs", "toml", "lock",
+        -- Scala
+        "scala", "sbt", "sc",
+        -- Lua
+        "lua",
+        -- Config files
+        "yaml", "yml", "env", "cfg", "ini", "conf"
+      }
+      
+      -- Check if this file should trigger LSP restart
+      local should_restart = false
+      for _, pattern in ipairs(trigger_patterns) do
+        if ext == pattern then
+          should_restart = true
+          break
+        end
+      end
+      
+      -- Also restart if file is in certain directories
+      if filepath:match("src/") or filepath:match("lib/") or filepath:match("tests/") or filepath:match("spec/") then
+        should_restart = true
+      end
+      
+      if should_restart and event.event ~= "BufDelete" then
+        vim.defer_fn(function()
+          vim.notify("File change detected: " .. filename .. ". Restarting LSP...", vim.log.levels.DEBUG)
+          vim.cmd("LspRestart")
+        end, 500)
+      end
+    end,
+    desc = "Restart LSP when project files change",
   })
 end
 
