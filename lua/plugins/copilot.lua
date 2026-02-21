@@ -23,11 +23,11 @@ M.suggestion_config = {
   auto_trigger = true,
   debounce = 75,
   keymap = {
-    accept = "<M-y>",
+    accept = "<Tab>",
     accept_word = false,
     accept_line = false,
-    next = "<M-j>",
-    prev = "<M-k>",
+    next = "<M-k>",
+    prev = "<M-j>",
     dismiss = "<M-e>",
   },
 }
