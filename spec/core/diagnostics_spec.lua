@@ -52,7 +52,7 @@ describe("core.diagnostics", function()
 
     it("should enable signs", function()
       local diagnostics = require("core.diagnostics")
-      assert.is_true(diagnostics.display_config.signs)
+      assert.is_table(diagnostics.display_config.signs)
     end)
 
     it("should enable underline", function()

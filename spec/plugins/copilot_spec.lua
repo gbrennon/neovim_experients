@@ -2,217 +2,239 @@
 local spec_helper = require("spec_helper")
 
 describe("plugins.copilot", function()
+  local spec, M
+
+  local function make_copilot_mock()
+    local mock = { _setup_opts = nil, setup_called = false }
+    mock.setup = function(opts)
+      mock.setup_called = true
+      mock._setup_opts = opts
+    end
+    return mock
+  end
+
+  local copilot_mock
+
   before_each(function()
     spec_helper.reset_vim_mock()
-    -- Mock copilot
-    package.loaded["copilot"] = {
-      setup = function() end,
-    }
+    package.loaded["plugins.copilot"] = nil
+    package.loaded["copilot"] = nil
+
+    copilot_mock = make_copilot_mock()
+    package.loaded["copilot"] = copilot_mock
+
+    spec = require("plugins.copilot")
+    M = spec._module
   end)
 
   after_each(function()
+    package.loaded["plugins.copilot"] = nil
     package.loaded["copilot"] = nil
   end)
 
+  --------------------------------------------------------------------------
+  -- Plugin spec structure
+  --------------------------------------------------------------------------
+
   describe("plugin spec", function()
-    it("should return a valid lazy.nvim plugin spec", function()
-      local spec = require("plugins.copilot")
+    it("should return a valid lazy.nvim spec", function()
       assert.is_table(spec)
       assert.equals("zbirenbaum/copilot.lua", spec[1])
     end)
 
-    it("should have event trigger", function()
-      local spec = require("plugins.copilot")
-      assert.is_table(spec.event)
-    end)
-
     it("should trigger on BufReadPre", function()
-      local spec = require("plugins.copilot")
       assert.is_true(vim.tbl_contains(spec.event, "BufReadPre"))
     end)
 
     it("should trigger on BufNewFile", function()
-      local spec = require("plugins.copilot")
       assert.is_true(vim.tbl_contains(spec.event, "BufNewFile"))
     end)
 
     it("should have config function", function()
-      local spec = require("plugins.copilot")
       assert.is_function(spec.config)
     end)
 
     it("should expose _module for testing", function()
-      local spec = require("plugins.copilot")
       assert.is_table(spec._module)
     end)
   end)
 
+  --------------------------------------------------------------------------
+  -- panel_config
+  --------------------------------------------------------------------------
+
   describe("_module.panel_config", function()
     it("should be a table", function()
-      local spec = require("plugins.copilot")
-      assert.is_table(spec._module.panel_config)
+      assert.is_table(M.panel_config)
     end)
 
     it("should be enabled", function()
-      local spec = require("plugins.copilot")
-      assert.is_true(spec._module.panel_config.enabled)
+      assert.is_true(M.panel_config.enabled)
     end)
 
     it("should have auto_refresh enabled", function()
-      local spec = require("plugins.copilot")
-      assert.is_true(spec._module.panel_config.auto_refresh)
+      assert.is_true(M.panel_config.auto_refresh)
     end)
 
     it("should have keymap configuration", function()
-      local spec = require("plugins.copilot")
-      assert.is_table(spec._module.panel_config.keymap)
+      assert.is_table(M.panel_config.keymap)
     end)
 
-    it("should have jump_prev keymap", function()
-      local spec = require("plugins.copilot")
-      assert.equals("[[", spec._module.panel_config.keymap.jump_prev)
+    it("should bind jump_prev to [[", function()
+      assert.equals("[[", M.panel_config.keymap.jump_prev)
     end)
 
-    it("should have jump_next keymap", function()
-      local spec = require("plugins.copilot")
-      assert.equals("]]", spec._module.panel_config.keymap.jump_next)
+    it("should bind jump_next to ]]", function()
+      assert.equals("]]", M.panel_config.keymap.jump_next)
     end)
 
-    it("should have accept keymap", function()
-      local spec = require("plugins.copilot")
-      assert.equals("<CR>", spec._module.panel_config.keymap.accept)
+    it("should bind accept to <CR>", function()
+      assert.equals("<CR>", M.panel_config.keymap.accept)
+    end)
+
+    it("should bind refresh to gr", function()
+      assert.equals("gr", M.panel_config.keymap.refresh)
     end)
 
     it("should have layout configuration", function()
-      local spec = require("plugins.copilot")
-      assert.is_table(spec._module.panel_config.layout)
+      assert.is_table(M.panel_config.layout)
     end)
 
-    it("should have bottom position", function()
-      local spec = require("plugins.copilot")
-      assert.equals("bottom", spec._module.panel_config.layout.position)
+    it("should position panel at bottom", function()
+      assert.equals("bottom", M.panel_config.layout.position)
     end)
 
     it("should have ratio of 0.4", function()
-      local spec = require("plugins.copilot")
-      assert.equals(0.4, spec._module.panel_config.layout.ratio)
+      assert.equals(0.4, M.panel_config.layout.ratio)
     end)
   end)
+
+  --------------------------------------------------------------------------
+  -- suggestion_config
+  --------------------------------------------------------------------------
 
   describe("_module.suggestion_config", function()
     it("should be a table", function()
-      local spec = require("plugins.copilot")
-      assert.is_table(spec._module.suggestion_config)
+      assert.is_table(M.suggestion_config)
     end)
 
     it("should be enabled", function()
-      local spec = require("plugins.copilot")
-      assert.is_true(spec._module.suggestion_config.enabled)
+      assert.is_true(M.suggestion_config.enabled)
     end)
 
     it("should have auto_trigger enabled", function()
-      local spec = require("plugins.copilot")
-      assert.is_true(spec._module.suggestion_config.auto_trigger)
+      assert.is_true(M.suggestion_config.auto_trigger)
     end)
 
-    it("should have debounce of 75", function()
-      local spec = require("plugins.copilot")
-      assert.equals(75, spec._module.suggestion_config.debounce)
+    it("should have debounce of 75ms", function()
+      assert.equals(75, M.suggestion_config.debounce)
     end)
 
     it("should have keymap configuration", function()
-      local spec = require("plugins.copilot")
-      assert.is_table(spec._module.suggestion_config.keymap)
+      assert.is_table(M.suggestion_config.keymap)
     end)
 
-    it("should have accept keymap as meta y", function()
-      local spec = require("plugins.copilot")
-      assert.equals("<M-y>", spec._module.suggestion_config.keymap.accept)
+    -- NOTE: accept is <Tab> (not <M-y> — copilot shares Tab with cmp,
+    -- cmp takes priority when visible, copilot fires as fallback)
+    it("should bind accept to <Tab>", function()
+      assert.equals("<Tab>", M.suggestion_config.keymap.accept)
+    end)
+
+    it("should bind next to <M-k>", function()
+      assert.equals("<M-k>", M.suggestion_config.keymap.next)
+    end)
+
+    it("should bind prev to <M-j>", function()
+      assert.equals("<M-j>", M.suggestion_config.keymap.prev)
+    end)
+
+    it("should bind dismiss to <M-e>", function()
+      assert.equals("<M-e>", M.suggestion_config.keymap.dismiss)
+    end)
+
+    it("should not bind accept_word (false keeps default off)", function()
+      assert.is_false(M.suggestion_config.keymap.accept_word)
+    end)
+
+    it("should not bind accept_line", function()
+      assert.is_false(M.suggestion_config.keymap.accept_line)
     end)
   end)
+
+  --------------------------------------------------------------------------
+  -- filetypes
+  --------------------------------------------------------------------------
 
   describe("_module.filetypes", function()
     it("should be a table", function()
-      local spec = require("plugins.copilot")
-      assert.is_table(spec._module.filetypes)
+      assert.is_table(M.filetypes)
     end)
 
-    it("should disable yaml", function()
-      local spec = require("plugins.copilot")
-      assert.is_false(spec._module.filetypes.yaml)
-    end)
+    -- These should be enabled (copilot is useful here)
+    local enabled_ft = { "yaml", "markdown", "gitcommit" }
+    for _, ft in ipairs(enabled_ft) do
+      it("should enable " .. ft, function()
+        assert.is_true(M.filetypes[ft], ft .. " should be enabled")
+      end)
+    end
 
-    it("should disable markdown", function()
-      local spec = require("plugins.copilot")
-      assert.is_false(spec._module.filetypes.markdown)
-    end)
+    -- These should be disabled
+    local disabled_ft = { "help", "gitrebase", "hgcommit", "svn", "cvs" }
+    for _, ft in ipairs(disabled_ft) do
+      it("should disable " .. ft, function()
+        assert.is_false(M.filetypes[ft], ft .. " should be disabled")
+      end)
+    end
 
-    it("should disable help", function()
-      local spec = require("plugins.copilot")
-      assert.is_false(spec._module.filetypes.help)
-    end)
-
-    it("should disable gitcommit", function()
-      local spec = require("plugins.copilot")
-      assert.is_false(spec._module.filetypes.gitcommit)
-    end)
-
-    it("should disable gitrebase", function()
-      local spec = require("plugins.copilot")
-      assert.is_false(spec._module.filetypes.gitrebase)
+    it("should disable dot-files buffer [.]", function()
+      assert.is_false(M.filetypes["."])
     end)
   end)
 
+  --------------------------------------------------------------------------
+  -- config function
+  --------------------------------------------------------------------------
+
   describe("config function", function()
     it("should run without error", function()
-      local spec = require("plugins.copilot")
-      assert.has_no.errors(function()
-        spec.config()
-      end)
+      assert.has_no.errors(function() spec.config() end)
     end)
 
     it("should call copilot.setup", function()
-      local setup_called = false
-      package.loaded["copilot"] = {
-        setup = function()
-          setup_called = true
-        end,
-      }
-
-      local spec = require("plugins.copilot")
       spec.config()
-      assert.is_true(setup_called)
+      assert.is_true(copilot_mock.setup_called)
     end)
 
-    it("should pass correct options to setup", function()
-      local passed_opts = nil
-      package.loaded["copilot"] = {
-        setup = function(opts)
-          passed_opts = opts
-        end,
-      }
-
-      local spec = require("plugins.copilot")
+    it("should pass panel config to setup", function()
       spec.config()
+      assert.same(M.panel_config, copilot_mock._setup_opts.panel)
+    end)
 
-      assert.is_not_nil(passed_opts)
-      assert.is_table(passed_opts.panel)
-      assert.is_table(passed_opts.suggestion)
-      assert.is_table(passed_opts.filetypes)
+    it("should pass suggestion config to setup", function()
+      spec.config()
+      assert.same(M.suggestion_config, copilot_mock._setup_opts.suggestion)
+    end)
+
+    it("should pass filetypes to setup", function()
+      spec.config()
+      assert.same(M.filetypes, copilot_mock._setup_opts.filetypes)
     end)
 
     it("should set copilot_node_command to node", function()
-      local passed_opts = nil
-      package.loaded["copilot"] = {
-        setup = function(opts)
-          passed_opts = opts
-        end,
-      }
-
-      local spec = require("plugins.copilot")
       spec.config()
+      assert.equals("node", copilot_mock._setup_opts.copilot_node_command)
+    end)
 
-      assert.equals("node", passed_opts.copilot_node_command)
+    it("should include server_opts_overrides", function()
+      spec.config()
+      assert.is_table(copilot_mock._setup_opts.server_opts_overrides)
+    end)
+
+    it("should not error when called multiple times", function()
+      assert.has_no.errors(function()
+        spec.config()
+        spec.config()
+      end)
     end)
   end)
 end)

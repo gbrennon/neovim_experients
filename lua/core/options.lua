@@ -52,7 +52,7 @@ function M.setup()
   opt.undofile = true
 
   -- Update time (faster for auto-refresh)
-  opt.updatetime = 1000  -- Trigger CursorHold events faster for auto-refresh
+  opt.updatetime = 250  -- Trigger CursorHold events faster for auto-refresh
   opt.timeoutlen = 300
 
   -- Scroll offset
@@ -81,6 +81,9 @@ function M.setup()
 
   -- Auto-read files when changed outside of Neovim
   opt.autoread = true
+
+  -- Disable LSP logging in normal use (set to DEBUG only when troubleshooting)
+  vim.lsp.set_log_level("OFF")
 end
 
 -- Auto-run setup when loaded

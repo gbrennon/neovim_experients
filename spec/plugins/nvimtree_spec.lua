@@ -2,76 +2,162 @@
 local spec_helper = require("spec_helper")
 
 describe("plugins.nvimtree", function()
-  local nvimtree_config
-  
+  local spec
+
   before_each(function()
     spec_helper.reset_vim_mock()
     package.loaded["plugins.nvimtree"] = nil
+    package.loaded["core.keymaps"] = {
+      nvimtree_on_attach = function() end,
+    }
+    spec = require("plugins.nvimtree")
+  end)
+
+  after_each(function()
+    package.loaded["plugins.nvimtree"] = nil
     package.loaded["core.keymaps"] = nil
-    nvimtree_config = require("plugins.nvimtree")
   end)
-  
-  it("should return a valid lazy.nvim plugin spec", function()
-    assert.is_table(nvimtree_config)
-    assert.equals("nvim-tree/nvim-tree.lua", nvimtree_config[1])
-  end)
-  
-  it("should have nvim-web-devicons dependency", function()
-    assert.is_table(nvimtree_config.dependencies)
-    assert.equals("nvim-tree/nvim-web-devicons", nvimtree_config.dependencies[1])
-  end)
-  
-  it("should load on command", function()
-    assert.is_table(nvimtree_config.cmd)
+
+  --------------------------------------------------------------------------
+  -- Plugin spec structure
+  --------------------------------------------------------------------------
+
+  describe("plugin spec", function()
+    it("should return a valid lazy.nvim spec", function()
+      assert.is_table(spec)
+      assert.equals("nvim-tree/nvim-tree.lua", spec[1])
+    end)
+
+    it("should depend on nvim-web-devicons", function()
+      assert.is_true(vim.tbl_contains(spec.dependencies, "nvim-tree/nvim-web-devicons"))
+    end)
+
+    it("should have opts table", function()
+      assert.is_table(spec.opts)
+    end)
+
     local expected_cmds = { "NvimTreeToggle", "NvimTreeFocus", "NvimTreeOpen", "NvimTreeClose" }
-    
     for _, cmd in ipairs(expected_cmds) do
-      local found = false
-      for _, actual_cmd in ipairs(nvimtree_config.cmd) do
-        if actual_cmd == cmd then
-          found = true
-          break
-        end
-      end
-      assert.is_true(found, "Command " .. cmd .. " should be in cmd list")
+      it("should lazy-load on " .. cmd .. " command", function()
+        assert.is_true(vim.tbl_contains(spec.cmd, cmd))
+      end)
     end
   end)
-  
-  it("should have options configuration", function()
-    assert.is_table(nvimtree_config.opts)
+
+  --------------------------------------------------------------------------
+  -- opts
+  --------------------------------------------------------------------------
+
+  describe("opts.on_attach", function()
+    it("should be a function", function()
+      assert.is_function(spec.opts.on_attach)
+    end)
+
+    it("should be wired to core.keymaps.nvimtree_on_attach", function()
+      local keymaps = require("core.keymaps")
+      assert.equals(keymaps.nvimtree_on_attach, spec.opts.on_attach)
+    end)
   end)
-  
-  describe("options", function()
-    local opts
-    
-    before_each(function()
-      opts = nvimtree_config.opts
+
+  describe("opts.view", function()
+    it("should be a table", function()
+      assert.is_table(spec.opts.view)
     end)
-    
-    it("should set on_attach callback", function()
-      assert.is_function(opts.on_attach)
+
+    it("should have width of 30", function()
+      assert.equals(30, spec.opts.view.width)
     end)
-    
-    it("should configure view width", function()
-      assert.is_table(opts.view)
-      assert.equals(30, opts.view.width)
+  end)
+
+  describe("opts.renderer.icons.show", function()
+    it("should be a table", function()
+      assert.is_table(spec.opts.renderer)
+      assert.is_table(spec.opts.renderer.icons)
+      assert.is_table(spec.opts.renderer.icons.show)
     end)
-    
-    it("should configure renderer icons", function()
-      assert.is_table(opts.renderer)
-      assert.is_table(opts.renderer.icons)
-      assert.is_table(opts.renderer.icons.show)
-      
-      local show = opts.renderer.icons.show
-      assert.is_true(show.git)
-      assert.is_true(show.folder)
-      assert.is_true(show.file)
-      assert.is_true(show.folder_arrow)
+
+    local icon_flags = { "git", "folder", "file", "folder_arrow" }
+    for _, flag in ipairs(icon_flags) do
+      it("should show " .. flag .. " icons", function()
+        assert.is_true(spec.opts.renderer.icons.show[flag])
+      end)
+    end
+  end)
+
+  describe("opts.filters", function()
+    it("should be a table", function()
+      assert.is_table(spec.opts.filters)
     end)
-    
-    it("should configure filters", function()
-      assert.is_table(opts.filters)
-      assert.is_false(opts.filters.dotfiles)
+
+    it("should show dotfiles (dotfiles = false)", function()
+      assert.is_false(spec.opts.filters.dotfiles)
+    end)
+  end)
+
+  describe("opts.filesystem_watchers", function()
+    it("should be a table", function()
+      assert.is_table(spec.opts.filesystem_watchers)
+    end)
+
+    it("should be enabled", function()
+      assert.is_true(spec.opts.filesystem_watchers.enable)
+    end)
+
+    it("should have debounce_delay of 50ms", function()
+      assert.equals(50, spec.opts.filesystem_watchers.debounce_delay)
+    end)
+
+    it("should ignore node_modules", function()
+      assert.is_true(
+        vim.tbl_contains(spec.opts.filesystem_watchers.ignore_dirs, "node_modules")
+      )
+    end)
+
+    it("should ignore .git", function()
+      assert.is_true(
+        vim.tbl_contains(spec.opts.filesystem_watchers.ignore_dirs, ".git")
+      )
+    end)
+
+    it("should ignore .venv", function()
+      assert.is_true(
+        vim.tbl_contains(spec.opts.filesystem_watchers.ignore_dirs, ".venv")
+      )
+    end)
+
+    it("should ignore __pycache__", function()
+      assert.is_true(
+        vim.tbl_contains(spec.opts.filesystem_watchers.ignore_dirs, "__pycache__")
+      )
+    end)
+  end)
+
+  describe("opts.actions.file_popup", function()
+    it("should be a table", function()
+      assert.is_table(spec.opts.actions)
+      assert.is_table(spec.opts.actions.file_popup)
+    end)
+
+    it("should configure open_win_config", function()
+      local cfg = spec.opts.actions.file_popup.open_win_config
+      assert.is_table(cfg)
+      assert.equals("cursor", cfg.relative)
+      assert.equals("shadow", cfg.border)
+      assert.equals("minimal", cfg.style)
+    end)
+  end)
+
+  describe("opts.live_filter", function()
+    it("should be a table", function()
+      assert.is_table(spec.opts.live_filter)
+    end)
+
+    it("should always show folders", function()
+      assert.is_true(spec.opts.live_filter.always_show_folders)
+    end)
+
+    it("should have a prefix string", function()
+      assert.is_string(spec.opts.live_filter.prefix)
     end)
   end)
 end)

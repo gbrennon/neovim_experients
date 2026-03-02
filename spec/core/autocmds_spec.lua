@@ -338,6 +338,28 @@ describe("core.autocmds", function()
       assert.is_true(has_py)
     end)
 
+    it("should include Rust files in pattern", function()
+      require("core.autocmds")
+      local state = spec_helper.vim_mock.get_state()
+      local ac = find_autocmd_by_desc(state, "Auto-import and organize imports on save")
+      local has_rs = false
+      for _, p in ipairs(ac.opts.pattern) do
+        if p == "*.rs" then has_rs = true end
+      end
+      assert.is_true(has_rs)
+    end)
+
+    it("should include Scala files in pattern", function()
+      require("core.autocmds")
+      local state = spec_helper.vim_mock.get_state()
+      local ac = find_autocmd_by_desc(state, "Auto-import and organize imports on save")
+      local has_scala = false
+      for _, p in ipairs(ac.opts.pattern) do
+        if p == "*.scala" then has_scala = true end
+      end
+      assert.is_true(has_scala)
+    end)
+
     it("should have callback function", function()
       require("core.autocmds")
       local state = spec_helper.vim_mock.get_state()

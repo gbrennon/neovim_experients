@@ -2,129 +2,132 @@
 local spec_helper = require("spec_helper")
 
 describe("plugins.colorizer", function()
-  local colorizer_config
-  local colorizer_module
-  
+  local spec, M
+
+  local function make_colorizer_mock()
+    local mock = { _setup_config = nil, setup_called = false }
+    mock.setup = function(cfg)
+      mock.setup_called = true
+      mock._setup_config = cfg
+    end
+    return mock
+  end
+
+  local colorizer_mock
+
   before_each(function()
     spec_helper.reset_vim_mock()
     package.loaded["plugins.colorizer"] = nil
     package.loaded["colorizer"] = nil
-    colorizer_config = require("plugins.colorizer")
-    colorizer_module = colorizer_config._module
+
+    colorizer_mock = make_colorizer_mock()
+    package.loaded["colorizer"] = colorizer_mock
+
+    spec = require("plugins.colorizer")
+    M = spec._module
   end)
-  
-  it("should return a valid lazy.nvim plugin spec", function()
-    assert.is_table(colorizer_config)
-    assert.equals("NvChad/nvim-colorizer.lua", colorizer_config[1])
+
+  after_each(function()
+    package.loaded["plugins.colorizer"] = nil
+    package.loaded["colorizer"] = nil
   end)
-  
-  it("should set lazy to false", function()
-    assert.is_false(colorizer_config.lazy)
-  end)
-  
-  it("should have a config function", function()
-    assert.is_function(colorizer_config.config)
-  end)
-  
-  it("should expose the module", function()
-    assert.is_table(colorizer_module)
-  end)
-  
-  describe("module", function()
-    it("should have default_options", function()
-      assert.is_table(colorizer_module.default_options)
+
+  --------------------------------------------------------------------------
+  -- Plugin spec structure
+  --------------------------------------------------------------------------
+
+  describe("plugin spec", function()
+    it("should return a valid lazy.nvim spec", function()
+      assert.is_table(spec)
+      assert.equals("NvChad/nvim-colorizer.lua", spec[1])
     end)
-    
+
+    it("should not be lazy-loaded", function()
+      assert.is_false(spec.lazy)
+    end)
+
     it("should have config function", function()
-      assert.is_function(colorizer_module.config)
+      assert.is_function(spec.config)
     end)
-    
-    describe("default_options", function()
-      local opts
-      
-      before_each(function()
-        opts = colorizer_module.default_options
-      end)
-      
-      it("should enable RGB", function()
-        assert.is_true(opts.RGB)
-      end)
-      
-      it("should enable RRGGBB", function()
-        assert.is_true(opts.RRGGBB)
-      end)
-      
-      it("should disable names", function()
-        assert.is_false(opts.names)
-      end)
-      
-      it("should enable RRGGBBAA", function()
-        assert.is_true(opts.RRGGBBAA)
-      end)
-      
-      it("should enable AARRGGBB", function()
-        assert.is_true(opts.AARRGGBB)
-      end)
-      
-      it("should enable rgb_fn", function()
-        assert.is_true(opts.rgb_fn)
-      end)
-      
-      it("should enable hsl_fn", function()
-        assert.is_true(opts.hsl_fn)
-      end)
-      
-      it("should enable css", function()
-        assert.is_true(opts.css)
-      end)
-      
-      it("should enable css_fn", function()
-        assert.is_true(opts.css_fn)
-      end)
-      
-      it("should set mode to background", function()
-        assert.equals("background", opts.mode)
-      end)
-      
-      it("should disable tailwind", function()
-        assert.is_false(opts.tailwind)
-      end)
-      
-      it("should configure sass", function()
-        assert.is_table(opts.sass)
-        assert.is_false(opts.sass.enable)
-      end)
-      
-      it("should set virtualtext", function()
-        assert.equals("â– ", opts.virtualtext)
-      end)
-      
-      it("should set always_update to false", function()
-        assert.is_false(opts.always_update)
-      end)
+
+    it("should expose _module for testing", function()
+      assert.is_table(spec._module)
     end)
-    
-    describe("config function", function()
-      it("should setup colorizer with correct options", function()
-        local setup_called = false
-        local setup_config = nil
-        
-        -- Mock colorizer
-        package.loaded["colorizer"] = {
-          setup = function(config)
-            setup_called = true
-            setup_config = config
-          end
-        }
-        
-        colorizer_module.config()
-        
-        assert.is_true(setup_called, "colorizer.setup should be called")
-        assert.is_table(setup_config)
-        assert.is_table(setup_config.filetypes)
-        assert.equals("*", setup_config.filetypes[1])
-        assert.same(colorizer_module.default_options, setup_config.user_default_options)
+  end)
+
+  --------------------------------------------------------------------------
+  -- default_options
+  --------------------------------------------------------------------------
+
+  describe("_module.default_options", function()
+    it("should be a table", function()
+      assert.is_table(M.default_options)
+    end)
+
+    local truthy_flags = {
+      "RGB", "RRGGBB", "RRGGBBAA", "AARRGGBB",
+      "rgb_fn", "hsl_fn", "css", "css_fn",
+    }
+    for _, flag in ipairs(truthy_flags) do
+      it("should enable " .. flag, function()
+        assert.is_true(M.default_options[flag])
       end)
+    end
+
+    it("should disable names (avoid false positives on words)", function()
+      assert.is_false(M.default_options.names)
+    end)
+
+    it("should disable tailwind", function()
+      assert.is_false(M.default_options.tailwind)
+    end)
+
+    it("should set mode to background", function()
+      assert.equals("background", M.default_options.mode)
+    end)
+
+    it("should have sass configuration", function()
+      assert.is_table(M.default_options.sass)
+      assert.is_false(M.default_options.sass.enable)
+    end)
+
+    it("should set a virtualtext string", function()
+      assert.is_string(M.default_options.virtualtext)
+      assert.is_true(#M.default_options.virtualtext > 0)
+    end)
+
+    it("should set always_update to false", function()
+      assert.is_false(M.default_options.always_update)
+    end)
+  end)
+
+  --------------------------------------------------------------------------
+  -- config function
+  --------------------------------------------------------------------------
+
+  describe("config / _module.config", function()
+    it("should run without error", function()
+      assert.has_no.errors(function() M.config() end)
+    end)
+
+    it("should call colorizer.setup", function()
+      M.config()
+      assert.is_true(colorizer_mock.setup_called)
+    end)
+
+    it("should apply to all filetypes (*)", function()
+      M.config()
+      assert.equals("*", colorizer_mock._setup_config.filetypes[1])
+    end)
+
+    it("should pass default_options as user_default_options", function()
+      M.config()
+      assert.same(M.default_options, colorizer_mock._setup_config.user_default_options)
+    end)
+
+    it("spec.config should delegate to _module.config", function()
+      spec.config()
+      assert.is_true(colorizer_mock.setup_called)
     end)
   end)
 end)

@@ -1,5 +1,6 @@
 -- Plugin specifications loader
 return {
+  require("plugins.agentic"),
   require("plugins.avante"),
   require("plugins.colorscheme"),
   require("plugins.cmp"),
@@ -9,6 +10,6 @@ return {
   require("plugins.gitsigns"),
   require("plugins.nvimtree"),
   require("plugins.telescope"),
-  require("plugins.noice"),
-  require("plugins.notify"),
+  require("plugins.wrapped"),
+  require("plugins.smellycat"),
 }

@@ -107,6 +107,12 @@ local vim_mock = {
       end
     end,
     _get_keymap = function(mode, lhs)
+      -- Prefer buffer-local keymaps when present
+      for _, keymap in ipairs(M._state.keymaps) do
+        if keymap.mode == mode and keymap.lhs == lhs and keymap.buffer then
+          return keymap
+        end
+      end
       for _, keymap in ipairs(M._state.keymaps) do
         if keymap.mode == mode and keymap.lhs == lhs then
           return keymap
@@ -117,6 +123,7 @@ local vim_mock = {
   },
 
   diagnostic = {
+    severity = { ERROR = 1, WARN = 2, INFO = 3, HINT = 4 },
     config = function(opts) M._state.diagnostic_config = opts end,
     goto_prev = function() end,
     goto_next = function() end,
@@ -146,6 +153,8 @@ local vim_mock = {
       make_range_params = function() return { context = {} } end,
       apply_workspace_edit = function() end,
     },
+    -- Provide set_log_level for compatibility with core.options
+    set_log_level = function() end,
     config = setmetatable({}, {
       __newindex = function(_, k, v)
         M._state.lsp_configs[k] = v
@@ -154,6 +163,10 @@ local vim_mock = {
         return M._state.lsp_configs[k]
       end,
     }),
+    -- Return a default mock client that supports code actions
+    get_clients = function(opts)
+      return { { id = 1, name = "mock", server_capabilities = { codeActionProvider = true }, offset_encoding = "utf-8" } }
+    end,
     enable = function(name)
       M._state.lsp_enabled[name] = true
     end,
