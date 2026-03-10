@@ -15,7 +15,7 @@ end
 
 return {
   url = "https://codeberg.org/mraspaud/smellycat.nvim",
-  enabled = enabled,
+  enabled = true,
   dependencies = { "nvim-treesitter/nvim-treesitter" },
   config = function()
     local ok, smelly = pcall(require, "smellycat")

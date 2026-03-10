@@ -22,18 +22,14 @@ M.servers = {
   rust_analyzer = {
     cmd = { "rust-analyzer" },
     filetypes = { "rust" },
-    settings = { ["rust-analyzer"] = { assist = { importGranularity = "module", importPrefix = "by_self" }, cargo = { loadOutDirsFromCheck = true }, procMacro = { enable = true }, checkOnSave = { command = "clippy" } } },
+    settings = { ["rust-analyzer"] = { assist = { importGranularity = "module", importPrefix = "by_self" }, cargo = { loadOutDirsFromCheck = true }, procMacro = { enable = true }, checkOnSave = true } },
   },
   gopls = {
     cmd = { "gopls" },
     filetypes = { "go", "gomod" },
     settings = { gopls = { gofumpt = true, staticcheck = true, analyses = { unusedparams = true, shadow = true } } },
   },
-  metals = {
-    cmd = { "metals" },
-    filetypes = { "scala", "sbt" },
-    settings = {},
-  },
+  -- metals handled by nvim-metals plugin (see lua/plugins/metals.lua)
   jsonls = { cmd = { "vscode-json-language-server", "--stdio" }, filetypes = { "json" }, settings = {} },
   yamlls = { cmd = { "yaml-language-server", "--stdio" }, filetypes = { "yaml" }, settings = {} },
   bashls = { cmd = { "bash-language-server", "start" }, filetypes = { "sh" }, settings = {} },
@@ -68,9 +64,11 @@ M.setup_servers = function(on_attach)
     end
 
     local server_cfg = vim.tbl_deep_extend("force", { capabilities = M.get_capabilities(), on_attach = on_attach }, cfg, { settings = settings })
-    -- Record into mock config table via metatable assignment
+
+    -- Record into vim.lsp.config so nvim-lspconfig (new API) and tests can see config
     vim.lsp.config[name] = server_cfg
-    -- Mark server enabled
+
+    -- Mark server enabled for environments that expect vim.lsp.enable
     if vim.lsp.enable then
       pcall(vim.lsp.enable, name)
     else
@@ -92,7 +90,7 @@ M.config = function()
   -- Mason setup for ensuring servers
   local ok, mason = pcall(require, "mason-lspconfig")
   if ok and mason and type(mason.setup) == "function" then
-    mason.setup({ ensure_installed = { "lua_ls", "pyright" }, automatic_installation = false })
+    mason.setup({ ensure_installed = { "lua_ls", "pyright", "gopls", "rust_analyzer", "ts_ls" }, automatic_installation = true })
   end
 end
 

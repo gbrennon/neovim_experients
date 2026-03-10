@@ -26,8 +26,8 @@ function M.setup()
   ------------------------------------------------------------------------------
   -- Buffer navigation
   ------------------------------------------------------------------------------
-  map("n", "<Tab>", ":bnext<CR>", { desc = "Next Buffer" })
-  map("n", "<S-Tab>", ":bprevious<CR>", { desc = "Prev Buffer" })
+  map("n", "<leader>n", ":bnext<CR>", { desc = "Next Buffer" })
+  map("n", "<leader>N", ":bprevious<CR>", { desc = "Prev Buffer" })
   map("n", "<leader>bd", ":bdelete<CR>", { desc = "Delete Buffer" })
 
   ------------------------------------------------------------------------------
@@ -128,7 +128,56 @@ function M.lsp_on_attach(bufnr)
   lsp_map("n", "gi", vim.lsp.buf.implementation, { desc = "Go to Implementation" })
   lsp_map("n", "gr", vim.lsp.buf.references, { desc = "Find References" })
   lsp_map("n", "K", vim.lsp.buf.hover, { desc = "Hover Documentation" })
-  lsp_map("n", "<leader>rn", vim.lsp.buf.rename, { desc = "Rename Symbol" })
+  lsp_map("n", "<leader>rn", function()
+    -- Prefer builtin LSP rename; fall back to a references-based rename if unavailable
+    local ok = pcall(vim.lsp.buf.rename)
+    if ok then
+      return
+    end
+    -- Fallback: gather references and replace text occurrences
+    local curr_word = vim.fn.expand('<cword>')
+    local new_name = vim.fn.input("Rename '" .. curr_word .. "' to: ")
+    if not new_name or new_name == '' or new_name == curr_word then
+      return
+    end
+
+    local params = vim.lsp.util.make_position_params()
+    params.context = { includeDeclaration = true }
+    local results = vim.lsp.buf_request_sync(0, 'textDocument/references', params, 2000)
+    if not results then
+      vim.notify('No references returned for rename', vim.log.levels.WARN)
+      return
+    end
+
+    local edits_by_uri = {}
+    for _, res in pairs(results or {}) do
+      for _, item in ipairs(res.result or {}) do
+        local uri = item.uri or item.targetUri
+        local range = item.range or item.targetRange
+        if uri and range then
+          edits_by_uri[uri] = edits_by_uri[uri] or {}
+          table.insert(edits_by_uri[uri], { range = range, newText = new_name })
+        end
+      end
+    end
+
+    local clients = vim.lsp.get_clients({ bufnr = 0 })
+    local encoding = 'utf-8'
+    for _, client in ipairs(clients) do
+      encoding = client.offset_encoding or encoding
+      break
+    end
+
+    for uri, edits in pairs(edits_by_uri) do
+      local bufnr = vim.uri_to_bufnr(uri)
+      if not vim.api.nvim_buf_is_loaded(bufnr) then
+        pcall(vim.fn.bufload, bufnr)
+      end
+      pcall(vim.lsp.util.apply_text_edits, edits, bufnr, encoding)
+    end
+
+    vim.notify("Renamed references to '" .. new_name .. "'", vim.log.levels.INFO)
+  end, { desc = "Rename Symbol" })
   lsp_map("n", "<leader>ca", function()
     pcall(vim.lsp.buf.code_action)
   end, { desc = "Code Action" })

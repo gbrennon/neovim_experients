@@ -78,6 +78,7 @@ local vim_mock = {
     end,
     expand = function(str) return str end,
     system = function() return "" end,
+    bufload = function() end,
   },
 
   api = {
@@ -93,6 +94,7 @@ local vim_mock = {
     nvim_buf_get_mark = function() return { 0, 0 } end,
     nvim_buf_line_count = function() return 100 end,
     nvim_win_set_cursor = function() end,
+    nvim_buf_is_loaded = function() return true end,
   },
 
   keymap = {
@@ -151,8 +153,21 @@ local vim_mock = {
     buf_request_sync = function() return {} end,
     util = {
       make_range_params = function() return { context = {} } end,
+      make_position_params = function() return { textDocument = { uri = 'file:///tmp/1' }, position = { line = 0, character = 0 } } end,
       apply_workspace_edit = function() end,
+      apply_text_edits = function(edits, bufnr, encoding)
+        M._state.applied_edits = M._state.applied_edits or {}
+        M._state.applied_edits[bufnr] = edits
+      end,
     },
+    uri_to_bufnr = function(uri)
+      -- simplistic mapping: assign a bufnr based on hash
+      M._state.uri_map = M._state.uri_map or {}
+      if M._state.uri_map[uri] then return M._state.uri_map[uri] end
+      local id = (#M._state.uri_map) + 2
+      M._state.uri_map[uri] = id
+      return id
+    end,
     -- Provide set_log_level for compatibility with core.options
     set_log_level = function() end,
     config = setmetatable({}, {
@@ -226,6 +241,10 @@ local vim_mock = {
       if v == val then return true end
     end
     return false
+  end,
+
+  uri_to_bufnr = function(uri)
+    return vim.lsp.uri_to_bufnr(uri)
   end,
 
   inspect = function(t) return tostring(t) end,

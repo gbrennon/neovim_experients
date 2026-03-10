@@ -87,7 +87,8 @@ function M.setup()
       if nvim_tree_ok then
         local view = require("nvim-tree.view")
         if view.is_visible() then
-          api.tree.reload()
+          -- Use the exposed command to refresh nvim-tree which is more stable across versions
+          vim.cmd("NvimTreeRefresh")
         end
       end
     end,
