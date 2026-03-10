@@ -56,3 +56,13 @@ Plugins without tests (lazy.nvim `keys`/`opts`-only pattern): `telescope`, `tree
 - Auto-import on save (`source.organizeImports`) runs for `*.ts`, `*.tsx`, `*.js`, `*.jsx`, `*.py`, `*.go`, `*.rs`, `*.scala` via `BufWritePre`.
 - Config hot-reload: writing any `init.lua`, `lua/core/*.lua`, or `lua/plugins/*.lua` clears `package.loaded` entries and re-requires the changed module automatically.
 - LSP is restarted (excluding `copilot`) whenever project config files change (`pyproject.toml`, `tsconfig.json`, `go.mod`, etc.).
+
+## Auto-refresh & LSP restart verification
+
+- Quick checks and commands:
+  - Run the provided script to exercise LSP restart logic: `./test-lsp-restart.sh`
+  - Manually check LSP and diagnostics with these in Neovim: `:LspInfo`, `:checktime`, `:NvimTreeRefresh`
+  - Check autoread and updatetime settings: `:set autoread?` and `:set updatetime?`
+- The repository includes VERIFY_AUTO_REFRESH.md with step-by-step verification for file-content auto-refresh, nvim-tree refresh, and LSP restart scenarios; consult it when testing related behavior.
+
+
